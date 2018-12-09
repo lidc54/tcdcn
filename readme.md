@@ -20,7 +20,7 @@
     - ![loss of having padding](photo/result/a.png)
     - ![loss of no padding](photo/result/b.PNG)
     - result
-    - ![2](photo/2.JPG)
+    - ![2](photo/2.jpg)
     ![2.](photo/2_TCNN.jpg)
     ![3](photo/3.JPG)
     ![3.](photo/3_TCNN.jpg)
