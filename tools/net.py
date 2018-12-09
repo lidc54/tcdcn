@@ -2,7 +2,8 @@ from mxnet.gluon import nn, HybridBlock
 from mxnet import nd, gluon
 import mxnet as mx
 import mxnet.gluon.loss as loss
-from unity import Iface
+from unity import Iface, ttmp
+import numpy as np
 
 
 class Abs(HybridBlock):
@@ -42,8 +43,8 @@ class TCDCN(HybridBlock):
     def block(self):
         self.base = nn.HybridSequential()
         # channel, kernel_size, pad, pooling_size, pooling_stride
-        architecture = ((16, 5, 2, 2, 2), (48, 3, 1, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
-        # architecture = ((16, 5, 0, 2, 2), (48, 3, 0, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
+        # architecture = ((16, 5, 2, 2, 2), (48, 3, 1, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
+        architecture = ((16, 5, 0, 2, 2), (48, 3, 0, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
         in_channels = 1
         for arch in architecture:
             if len(arch) == 5:
@@ -85,6 +86,53 @@ def initia_Tcdcn(net, ctx):
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def extraMSE(y_pred, y_true):
+    num, L = y_true.shape
+    extra_eye_weight = 100.0
+    extra_side_weight = 1.0
+    # eye loss
+    eyeX_pred = y_pred[:, 0] - y_pred[:, 1]  # del X size 16
+    eyeY_pred = y_pred[:, 5] - y_pred[:, 6]
+    eyeX_true = y_true[:, 0] - y_true[:, 1]
+    eyeY_true = y_true[:, 5] - y_true[:, 6]
+    eye_diff = eyeY_pred / (1e-6 + eyeX_pred) - eyeY_true / (1e-6 + eyeX_true)
+    eye_loss = nd.sum(eye_diff ** 2) / (num * 2.0)
+    # side face
+
+    # L /= 2
+    # # delX = y_true[:, 0] - y_true[:, 1]  # del X size 16
+    # # delY = y_true[:, L] - y_true[:, L + 1]  # del y size 16
+    # interOc = (1e-6 + (eyeX_true ** 2 + eyeY_true ** 2) ** 0.5)  # .T
+    # left_sideX = y_pred[:, 0] - y_pred[:, 2]
+    # left_sideX_true = y_true[:, 0] - y_true[:, 2]
+    # right_sideX = y_pred[:, 1] - y_pred[:, 2]
+    # right_sideX_true = y_true[:, 1] - y_true[:, 2]
+    # side_diff = (left_sideX - left_sideX_true) ** 2 + \
+    #             (right_sideX - right_sideX_true) ** 2
+    # side_diff = side_diff / (interOc ** 2)
+    # side_loss = nd.sum(side_diff) / 2.0
+    if ttmp.do:
+        # ttmp.sw.add_scalar('side_loss', value=side_loss.asscalar(), global_step=ttmp.iter)
+        ttmp.sw.add_scalar('eye_loss', value=eye_loss.asscalar(), global_step=ttmp.iter)
+
+    return eye_loss * extra_eye_weight  # + side_loss * extra_side_weight
+
+
+def left_right_weight(y_true):
+    num, L = y_true.shape
+    L /= 2
+    delX = y_true[:, 0] - y_true[:, 1]  # del X size 16
+    # delY = y_true[:, L] - y_true[:, L + 1]  # del y size 16
+    # interOc = (1e-6 + (delX * delX + delY * delY) ** 0.5).T
+    left = delX / (1e-6 + y_true[:, 0] - y_true[:, 2])
+    right = delX / (1e-6 + y_true[:, 1] - y_true[:, 2])
+    weight = np.vstack((left, right, np.ones_like(left), left, right))
+    weight = np.tile(weight, (2, 1))
+    weight = np.abs(weight)
+    weight[weight > 10] = 10
+    return weight
+
+
 def NormlizedMSE(y_pred, y_true):
     num, L = y_true.shape
     L /= 2
@@ -94,8 +142,15 @@ def NormlizedMSE(y_pred, y_true):
     # Cannot multiply shape (16,10) by (16,1) so we transpose to (10,16) and (1,16)
     diff = (y_pred - y_true).T  # Transpose so we can divide a (16,10) array by (16,1)
     diff = (diff / interOc).T  # We transpose back to (16,10)
+    weight = left_right_weight(y_true.asnumpy())
+    weight = nd.array(weight.T, ctx=y_true.context)
+    diff = diff * weight
     resLoss = nd.sum(diff ** 2) / (num * 2.0)  # Loss is scalar
-    return resLoss
+    if ttmp.do:
+        ttmp.sw.add_scalar('res_loss', value=resLoss.asscalar(), global_step=ttmp.iter)
+
+    extraLoss = extraMSE(y_pred, y_true)
+    return resLoss + extraLoss
 
 
 def loss_FLD(pre, label, attr, keypoint_weight):

@@ -17,8 +17,16 @@
     参考MTCNN的网络结构，第三个卷积层之后就不带padding了
 - 结果
     - loss
-    - ![loss of having padding](/photo/result/a.png)
-    - ![loss of no padding](/photo/result/b.PNG)
-    
-    
-    
+    - ![loss of having padding](photo/result/a.png)
+    - ![loss of no padding](photo/result/b.PNG)
+    - result
+    - ![2](photo/2.JPG)
+    ![2.](photo/2_TCNN.jpg)
+    ![3](photo/3.JPG)
+    ![3.](photo/3_TCNN.jpg)
+    - ![4](photo/4.JPG)
+    ![4.](photo/4_TCNN.jpg)
+#### 运行示例
+ - 参考test.py文件
+ - evalution.py是使用AFLW来做精度评估
+ 

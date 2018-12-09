@@ -5,6 +5,7 @@ from tools.detector import Face_Roi
 from mxnet import nd
 from tools.data_loader import database, HDF5_dataset
 import numpy as np
+from optimiztion.mergeAndWarp import align_inst, trans_points
 
 
 # import numpy as np
@@ -73,21 +74,32 @@ class test_model(object):
         self.detector = Face_Roi()
         self.IMAGE_SIZE = 40
 
-    def test(self, image_list, use_detector=True):
+    def test(self, image_list, use_detector=True, use_merge=False):
         for idx, jpg in enumerate(image_list):
+            if '_1.jpg' in jpg: continue
             saved_ = jpg.split('.')
             saved_jpg = '_'.join(saved_[:-1] + ['TCNN.jpg'])
             saved_txt = '_'.join(saved_[:-1] + ['TCNN.txt'])
             self.exist_box = '.'.join(saved_[:-1] + ['txt'])
-            print saved_jpg
-
-            img = cv2.imread(jpg)
-            key_points = self.landmark_of_given_img(img, use_detector=use_detector)
+            print  saved_jpg
+            self.merge_condition = False
+            if use_merge and 'vis' in jpg:
+                nir = jpg.replace('vis', 'nir')
+                nir_saved = saved_jpg.replace('vis', 'nir_merge_')
+                if not os.path.exists(nir): continue
+                self.merge_condition = True
+                img, M = align_inst(nir, jpg)  # coor same as jpg
+                self.nir_img = cv2.imread(nir)
+                key_points = self.landmark_of_given_img(img, use_detector=use_detector, M=M)
+            else:
+                img = cv2.imread(jpg)
+                key_points = self.landmark_of_given_img(img, use_detector=use_detector)
             cv2.imwrite(saved_jpg, img)
+            # if self.merge_condition: cv2.imwrite(nir_saved, self.nir_img)
             with open(saved_txt, 'w')as f:
                 f.writelines(' '.join(map(repr, key_points)))
 
-    def landmark_of_given_img(self, img, use_detector=False, stop=False):
+    def landmark_of_given_img(self, img, use_detector=False, M=None, stop=False):
         try:
             if use_detector:
                 print 'facebox detector'
@@ -95,6 +107,7 @@ class test_model(object):
             else:
                 boxes = self.detector.dapeng_detect(img)
         except Exception, e:
+            print 'error occur'
             boxes = []
             with open(self.exist_box)as f:
                 dets = f.readlines()
@@ -122,17 +135,25 @@ class test_model(object):
             #     new_img = opt.transform(box, img)
             #     if not new_img: break
             #     self.landmark_of_given_img(new_img, use_detector, stop=True)
+            points[:len(points) / 2] = map(lambda x: x * (x2 - x1) + x1, points[:len(points) / 2])
+            points[len(points) / 2:] = map(lambda x: x * (y2 - y1) + y1, points[len(points) / 2:])
+            # if self.merge_condition:
+            #     nir_point, nir_box = trans_points(M, points, box)
+            #     self.mark(self.nir_img, nir_box, nir_point)
+            self.mark(img, box, points, key_points)
 
-            cv2.rectangle(img, (x1, y1 + 4), (x2, y2), (255, 0, 0), 2)
-            point_pair_l = len(points)
-
-            for i in range(point_pair_l / 2):
-                x = points[i] * (x2 - x1) + x1
-                y = points[i + point_pair_l / 2] * (y2 - y1) + y1
-                # cv2.circle(img, (int(x), int(y)), 1, (0, 0, 255), 2)
-                img[int(y), int(x)] = 255  # [0, 0, 255]
-                key_points += [x, y]
         return key_points
+
+    def mark(self, img, box, points, key_points=None):
+        x1, x2, y1, y2 = map(int, box)
+        cv2.rectangle(img, (x1, y1 + 4), (x2, y2), (255, 0, 0), 2)
+        point_pair_l = len(points)
+        for i in range(point_pair_l / 2):
+            x = points[i]
+            y = points[i + point_pair_l / 2]
+            cv2.circle(img, (int(x), int(y)), 1, (0, 0, 255), 2)
+            # img[int(y), int(x)] = 255  # [0, 0, 255]
+            if type(key_points) == list: key_points += [x, y]
 
 
 # failure rate on valid dataset
@@ -146,12 +167,13 @@ def to_evalue(model_path='log/tcdcn.pt', Is_HDF=True):
 
 
 if __name__ == "__main__":
-    # images_dirs = ["/home/ldc/work/faceAlignment/face-landmark/image/"]
+    # images_dirs = ["result/"]
     images_dirs = ['/home2/block_box/nir_pass/', '/home2/spetrum_box/nir_initial/', '/home2/vis_box/vis/']
-    model_path = 'log_DP/tcdcn.pt'
+    # images_dirs = ['/home2/2018124/result/']
+    model_path = 'log_DP/log4/tcdcn.pt'
     tm = test_model(model_path)
     for images_dir in images_dirs:
         os.system('rm -f %s' % (images_dir + '*TCNN*'))
         image_list = file_list_fn(images_dir)
-        tm.test(image_list, False)
+        tm.test(image_list, use_detector=False, use_merge=False)
     # to_evalue(Is_HDF=True)

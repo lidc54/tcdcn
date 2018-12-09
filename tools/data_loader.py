@@ -5,10 +5,7 @@ import numpy as np
 import mxnet as mx
 import matplotlib.pyplot as plt
 from detector import Face_Roi
-
-sys.path.append('/home/ldc/work/faceboxes/')
-from networks import FaceBox
-from encoderl import DataEncoder
+from __init__ import *
 
 
 class loader(dataset.Dataset):

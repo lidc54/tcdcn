@@ -2,14 +2,8 @@ import sys, dlib, cv2, torch, os, random
 from torch.autograd import Variable
 import torch.nn.functional as F
 from dapeng.dp_detect import Detector
+from __init__ import *
 
-sys.path.append('/home/ldc/work/faceboxes/')
-from networks import FaceBox
-from encoderl import DataEncoder
-
-
-# import torch#only work in python3 &corresponding pytorch
-# torch.multiprocessing.set_start_method("spawn")
 
 class Face_Roi(object):
     def __init__(self, fun='facebox'):
