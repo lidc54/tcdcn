@@ -1,14 +1,21 @@
 from mxnet import nd
 import numpy as np
 
+
 class tmp(object):
-    def set(self,sw):
-        self.sw=sw
-    def setiter(self,iter):
-        self.iter=iter
-    def setstop(self,stop):
-        self.do=stop
-ttmp=tmp()
+    def set(self, sw):
+        self.sw = sw
+
+    def setiter(self, iter):
+        self.iter = iter
+
+    def setstop(self, stop):
+        self.do = stop
+
+
+ttmp = tmp()
+
+
 class I(object):
     def __init__(self):
         self.idx = {"smile": 1, "glasses": 1, "gender": 1, "pose": 1}

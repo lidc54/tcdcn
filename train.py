@@ -10,7 +10,7 @@ import time
 def train():
     net = TCDCN()
     epoches = 1000
-    path = 'log_DP/log6/'
+    path = 'log_DP/log8/'
     # if os.path.exists(path):
     #     os.system('rm -r %s' % (path))
     sv_model = path + 'tcdcn.pt'
@@ -21,12 +21,12 @@ def train():
 
     initia_Tcdcn(net, ctx)
     # net.load_parameters(sv_model, ctx=ctx)
-    lr = 0.001
+    lr = 0.0001
     batch_size = 256 * len(ctx) if type(ctx) == list else 512
     idx_span = 50
     eta_weight = 0.01
     print '~' * 10, '\npath:', path, '\n', 'learning rate:', lr, '\n', 'ctx:', ctx, '\n', '~' * 10, '\n'
-    keypoint_weight = [0.5, 1.5, 1.5, 2, 1]  # "landmarks", "smile", "glasses", "gender", "pose"
+    keypoint_weight = [2.5, 1, 1, 2.5, 1]  # "landmarks", "smile", "glasses", "gender", "pose"
     # train_data, test_data = database(batch_size)
     train_data, _, test_data, _ = HDF5_dataset(batch_size)
     trainer = gluon.Trainer(net.collect_params(), 'adam', {'learning_rate': lr})
@@ -97,14 +97,14 @@ def train():
             recoder(loss_items, sw, k, train_items, test_items, mode='test', span=idx_span)
             k += 1
             if k % 20 == 0: print epoch, 'test ok%2.5s' % (time.time() - t)
-            # if k > 142:
-            #     Iface.idx["glasses"] = 0
-            # if k > 198:
-            #     Iface.idx["gender"] = 0
-            # if k > 195:
-            #     Iface.idx["smile"] = 0
-            # if k > 108:
-            #     Iface.idx["pose"] = 0
+            if k > 200:
+                Iface.idx["glasses"] = 0
+            if k > 200:
+                Iface.idx["gender"] = 0
+            if k > 144:
+                Iface.idx["smile"] = 0
+            if k > 200:
+                Iface.idx["pose"] = 0
             # if k > 4: break
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         epoch += 1

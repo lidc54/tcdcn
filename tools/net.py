@@ -43,8 +43,8 @@ class TCDCN(HybridBlock):
     def block(self):
         self.base = nn.HybridSequential()
         # channel, kernel_size, pad, pooling_size, pooling_stride
-        # architecture = ((16, 5, 2, 2, 2), (48, 3, 1, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
-        architecture = ((16, 5, 0, 2, 2), (48, 3, 0, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
+        architecture = ((16, 5, 2, 2, 2), (48, 3, 1, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
+        # architecture = ((16, 5, 0, 2, 2), (48, 3, 0, 2, 2), (64, 3, 0, 3, 2), (64, 2, 0))
         in_channels = 1
         for arch in architecture:
             if len(arch) == 5:
@@ -88,7 +88,7 @@ def initia_Tcdcn(net, ctx):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 def extraMSE(y_pred, y_true):
     num, L = y_true.shape
-    extra_eye_weight = 100.0
+    extra_eye_weight = 50.0
     extra_side_weight = 1.0
     # eye loss
     eyeX_pred = y_pred[:, 0] - y_pred[:, 1]  # del X size 16
@@ -96,7 +96,7 @@ def extraMSE(y_pred, y_true):
     eyeX_true = y_true[:, 0] - y_true[:, 1]
     eyeY_true = y_true[:, 5] - y_true[:, 6]
     eye_diff = eyeY_pred / (1e-6 + eyeX_pred) - eyeY_true / (1e-6 + eyeX_true)
-    eye_loss = nd.sum(eye_diff ** 2) / (num * 2.0)
+    eye_loss = nd.sum(nd.abs(eye_diff))  # (num * 2.0)
     # side face
 
     # L /= 2
@@ -113,7 +113,7 @@ def extraMSE(y_pred, y_true):
     # side_loss = nd.sum(side_diff) / 2.0
     if ttmp.do:
         # ttmp.sw.add_scalar('side_loss', value=side_loss.asscalar(), global_step=ttmp.iter)
-        ttmp.sw.add_scalar('eye_loss', value=eye_loss.asscalar(), global_step=ttmp.iter)
+        ttmp.sw.add_scalar('a_eye_loss', value=eye_loss.asscalar(), global_step=ttmp.iter)
 
     return eye_loss * extra_eye_weight  # + side_loss * extra_side_weight
 
@@ -147,7 +147,7 @@ def NormlizedMSE(y_pred, y_true):
     diff = diff * weight
     resLoss = nd.sum(diff ** 2) / (num * 2.0)  # Loss is scalar
     if ttmp.do:
-        ttmp.sw.add_scalar('res_loss', value=resLoss.asscalar(), global_step=ttmp.iter)
+        ttmp.sw.add_scalar('a_res_loss', value=resLoss.asscalar(), global_step=ttmp.iter)
 
     extraLoss = extraMSE(y_pred, y_true)
     return resLoss + extraLoss
